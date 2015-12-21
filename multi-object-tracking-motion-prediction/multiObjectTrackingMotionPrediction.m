@@ -99,7 +99,9 @@ end
                     - trackCentroids.getFirst();
                 predictedCentroid = [predictedCentroid(1), predictedCentroid(2)];
                 
-                if (abs(sum(detectionCentroid - predictedCentroid)) < 10)
+                % perform an euclidean distance between the
+                % detection and the prediction
+                if (norm(detectionCentroid - predictedCentroid) < 25)
                     % update the track
                     
                     if (tracks(t).bboxes.size() == 2)
