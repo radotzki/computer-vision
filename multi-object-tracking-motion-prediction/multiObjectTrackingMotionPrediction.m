@@ -13,7 +13,6 @@ while ~isDone(obj.reader)
     frame = readFrame();
     [centroids, bboxes, mask] = detectObjects(frame);
     
-    assignedDetections = [];
     updateTracks();
     deleteLostTracks();
     createNewTracks();
@@ -42,6 +41,7 @@ end
         % the background. It outputs a binary mask, where the pixel value
         % of 1 corresponds to the foreground and the value of 0 corresponds
         % to the background. 
+        % reference: http://www.mathworks.com/help/vision/ref/vision.foregrounddetector-class.html
         
         obj.detector = vision.ForegroundDetector('NumGaussians', 3, ...
             'NumTrainingFrames', 40, 'MinimumBackgroundRatio', 0.7);
@@ -101,7 +101,7 @@ end
                 
                 % perform an euclidean distance between the
                 % detection and the prediction
-                if (norm(detectionCentroid - predictedCentroid) < 25)
+                if (pdist2(detectionCentroid, predictedCentroid) < 25)
                     % update the track
                     
                     if (tracks(t).bboxes.size() == 2)
@@ -114,8 +114,10 @@ end
                     tracks(t).age = tracks(t).age + 1;
                     tracks(t).totalVisibleCount = ...
                         tracks(t).totalVisibleCount + 1;
-                    assignedDetections(end + 1) = d;
+                    bboxes(d, :) = [];
+                    centroids(d, :) = [];
                     updated = true;
+                    break;
                 end
             end
             
@@ -147,27 +149,25 @@ end
 %% Create New Tracks
     function createNewTracks()
         import java.util.LinkedList;
-        for i = 1:size(centroids, 1)
-            if isempty(assignedDetections) || ~ismember(i, assignedDetections)
-                centroidsQueue = LinkedList();
-                bboxesQueue = LinkedList();
-                centroidsQueue.add(centroids(i, :));
-                bboxesQueue.add(bboxes(i, :));
+        for i = 1:size(bboxes, 1)
+            centroidsQueue = LinkedList();
+            bboxesQueue = LinkedList();
+            centroidsQueue.add(centroids(i, :));
+            bboxesQueue.add(bboxes(i, :));
 
-                % Create a new track.
-                newTrack = struct(...
-                    'id', nextId, ...
-                    'bboxes', bboxesQueue, ...
-                    'centroids', centroidsQueue, ...
-                    'age', 1, ...
-                    'totalVisibleCount', 1);
+            % Create a new track.
+            newTrack = struct(...
+                'id', nextId, ...
+                'bboxes', bboxesQueue, ...
+                'centroids', centroidsQueue, ...
+                'age', 1, ...
+                'totalVisibleCount', 1);
 
-                % Add it to the array of tracks.
-                tracks(end + 1) = newTrack;
+            % Add it to the array of tracks.
+            tracks(end + 1) = newTrack;
 
-                % Increment the next id.
-                nextId = nextId + 1;
-            end
+            % Increment the next id.
+            nextId = nextId + 1;
         end
     end
 

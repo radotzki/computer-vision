@@ -15,7 +15,6 @@ while ~isDone(obj.reader)
     frame = readFrame();
     [bboxes, mask] = detectObjects(frame);
     
-    assignedDetections = [];
     updateTracks();
     deleteLostTracks();
     createNewTracks();
@@ -44,6 +43,7 @@ end
         % the background. It outputs a binary mask, where the pixel value
         % of 1 corresponds to the foreground and the value of 0 corresponds
         % to the background. 
+        % reference: http://www.mathworks.com/help/vision/ref/vision.foregrounddetector-class.html
         
         obj.detector = vision.ForegroundDetector('NumGaussians', 3, ...
             'NumTrainingFrames', 40, 'MinimumBackgroundRatio', 0.7);
@@ -102,8 +102,9 @@ end
                     tracks(t).age = tracks(t).age + 1;
                     tracks(t).totalVisibleCount = ...
                         tracks(t).totalVisibleCount + 1;
-                    assignedDetections(end + 1) = d;
                     updated = true;
+                    bboxes(d, :) = [];
+                    break;
                 end
             end
             
@@ -135,22 +136,20 @@ end
 %% Create New Tracks
     function createNewTracks()
         for i = 1:size(bboxes, 1)
-            if isempty(assignedDetections) || ~ismember(i, assignedDetections)
-                bbox = bboxes(i, :);
+            bbox = bboxes(i, :);
 
-                % Create a new track.
-                newTrack = struct(...
-                    'id', nextId, ...
-                    'bbox', bbox, ...
-                    'age', 1, ...
-                    'totalVisibleCount', 1);
+            % Create a new track.
+            newTrack = struct(...
+                'id', nextId, ...
+                'bbox', bbox, ...
+                'age', 1, ...
+                'totalVisibleCount', 1);
 
-                % Add it to the array of tracks.
-                tracks(end + 1) = newTrack;
+            % Add it to the array of tracks.
+            tracks(end + 1) = newTrack;
 
-                % Increment the next id.
-                nextId = nextId + 1;
-            end
+            % Increment the next id.
+            nextId = nextId + 1;
         end
     end
 
