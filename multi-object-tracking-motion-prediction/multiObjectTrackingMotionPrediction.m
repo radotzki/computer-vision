@@ -28,7 +28,7 @@ end
         % objects in each frame, and playing the video.
         
         % Create a video file reader.
-        obj.reader = vision.VideoFileReader('./LeftBag.mpeg');
+        obj.reader = vision.VideoFileReader('./LeftBag.mp4');
         
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
@@ -52,7 +52,7 @@ end
         % characteristics, such as centroid and the bounding box.
         
         obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
-            'CentroidOutputPort', true, 'MinimumBlobArea', 400);
+            'CentroidOutputPort', true, 'MinimumBlobArea', 200);
     end
 
 %% Initialize Tracks
@@ -78,8 +78,8 @@ end
         mask = obj.detector.step(frame);
         
         % Apply morphological operations to remove noise and fill in holes.
-        mask = imopen(mask, strel('rectangle', [3,3]));
-        mask = imclose(mask, strel('rectangle', [15, 15])); 
+        mask = imopen(mask, strel('rectangle', [5, 5]));
+        mask = imclose(mask, strel('rectangle', [13, 13])); 
         mask = imfill(mask, 'holes');
         
         % Perform blob analysis to find connected components.
