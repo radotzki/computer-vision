@@ -1,6 +1,4 @@
-%% Motion-Based Multiple Object Tracking
-
-function multiObjectNaiveTracking()
+function MotionPredictionTracking()
 
 % Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
@@ -13,7 +11,7 @@ nextId = 1; % ID of the next track
 % Detect moving objects, and track them across video frames.
 while ~isDone(obj.reader)
     frame = readFrame();
-    [bboxes, mask] = detectObjects(frame);
+    [centroids, bboxes, mask] = detectObjects(frame);
     
     updateTracks();
     deleteLostTracks();
@@ -50,11 +48,11 @@ end
         
         % Connected groups of foreground pixels are likely to correspond to moving
         % objects.  The blob analysis System object is used to find such groups
-        % (called 'blobs' or 'connected components'), and compute their 
-        % bounding box.
+        % (called 'blobs' or 'connected components'), and compute their
+        % characteristics, such as centroid and the bounding box.
         
         obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true, ...
-            'MinimumBlobArea', 200);
+            'CentroidOutputPort', true, 'MinimumBlobArea', 200);
     end
 
 %% Initialize Tracks
@@ -62,7 +60,8 @@ end
         % create an empty array of tracks
         tracks = struct(...
             'id', {}, ...
-            'bbox', {}, ...
+            'bboxes', {}, ...
+            'centroids', {}, ...
             'age', {}, ...
             'totalVisibleCount', {});
     end
@@ -73,7 +72,7 @@ end
     end
 
 %% Detect Objects
-    function [bboxes, mask] = detectObjects(frame)
+    function [centroids, bboxes, mask] = detectObjects(frame)
         
         % Detect foreground.
         mask = obj.detector.step(frame);
@@ -84,33 +83,50 @@ end
         mask = imfill(mask, 'holes');
         
         % Perform blob analysis to find connected components.
-        [~, ~, bboxes] = obj.blobAnalyser.step(mask);
+        [~, centroids, bboxes] = obj.blobAnalyser.step(mask);
     end
 
 %% Update Tracks
     function updateTracks()
         for t = 1:length(tracks)
-            updated = false;
+
+            min = realmax;
+            minIndex = 0;
+            
             for d = 1:size(bboxes, 1)
-                detectionBbox = bboxes(d, :);
-                trackBbox = tracks(t).bbox;
-                
-                % if the bbox overlap with the track
-                if (rectint(detectionBbox, trackBbox) ~= 0)
-                    % update the track
-                    tracks(t).bbox = detectionBbox;
-                    tracks(t).age = tracks(t).age + 1;
-                    tracks(t).totalVisibleCount = ...
-                        tracks(t).totalVisibleCount + 1;
-                    updated = true;
-                    bboxes(d, :) = [];
-                    break;
+                detectionCentroid = centroids(d, :);
+
+               trackCentroids = tracks(t).centroids;
+               predictedCentroid = 2 * trackCentroids.getLast() ...
+                   - trackCentroids.getFirst();
+               predictedCentroid = [predictedCentroid(1), predictedCentroid(2)];
+               
+               % check the distance between the detection and the prediction
+               distFromPrediction = pdist2(detectionCentroid, predictedCentroid);
+               
+                % find the closest one to the track
+                if (distFromPrediction < min)
+                    min = distFromPrediction;
+                    minIndex = d;
                 end
             end
             
-            if ~updated
-                tracks(t).age = tracks(t).age + 1;
+            % update the track if its under the threshold
+            if (min < realmax && min < 35)  
+                if (tracks(t).bboxes.size() == 2)
+                    tracks(t).bboxes.pop();
+                    tracks(t).centroids.pop();
+                end
+                
+                tracks(t).bboxes.add(bboxes(minIndex, :));
+                tracks(t).centroids.add(centroids(minIndex, :));
+                tracks(t).totalVisibleCount = ...
+                    tracks(t).totalVisibleCount + 1;
+                bboxes(minIndex, :) = [];
+                centroids(minIndex, :) = [];
             end
+            
+            tracks(t).age = tracks(t).age + 1;
         end
     end
 
@@ -135,13 +151,18 @@ end
 
 %% Create New Tracks
     function createNewTracks()
+        import java.util.LinkedList;
         for i = 1:size(bboxes, 1)
-            bbox = bboxes(i, :);
+            centroidsQueue = LinkedList();
+            bboxesQueue = LinkedList();
+            centroidsQueue.add(centroids(i, :));
+            bboxesQueue.add(bboxes(i, :));
 
             % Create a new track.
             newTrack = struct(...
                 'id', nextId, ...
-                'bbox', bbox, ...
+                'bboxes', bboxesQueue, ...
+                'centroids', centroidsQueue, ...
                 'age', 1, ...
                 'totalVisibleCount', 1);
 
@@ -160,13 +181,15 @@ end
         mask = uint8(repmat(mask, [1, 1, 3])) .* 255;
         
         for t = 1:length(tracks)
+            curBbox = tracks(t).bboxes.getLast();
+            curBbox = [curBbox(1), curBbox(2), curBbox(3), curBbox(4)];
             % Draw the objects on the frame.
             frame = insertObjectAnnotation(frame, 'rectangle', ...
-                tracks(t).bbox, tracks(t).id);
+                curBbox, tracks(t).id);
 
             % Draw the objects on the mask.
             mask = insertObjectAnnotation(mask, 'rectangle', ...
-                tracks(t).bbox, tracks(t).id);
+                curBbox, tracks(t).id);
         end
         
         % Display the mask and the frame.
