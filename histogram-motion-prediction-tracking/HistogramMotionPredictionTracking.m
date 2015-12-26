@@ -1,4 +1,4 @@
-function HistogramMotionPredictionTracking(type, histogramType)
+function HistogramMotionPredictionTracking(video, type, histogramType)
 
 % Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
@@ -17,7 +17,6 @@ while ~isDone(obj.reader)
     updateTracks();
     deleteLostTracks();
     createNewTracks();
-    
     displayTrackingResults();
 end
 
@@ -29,7 +28,7 @@ end
         % objects in each frame, and playing the video.
         
         % Create a video file reader.
-        obj.reader = vision.VideoFileReader('./LeftBag.mp4');
+        obj.reader = vision.VideoFileReader(video);
         
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
@@ -96,7 +95,7 @@ end
                 y = bboxes(d,2);
                 w = bboxes(d,3);
                 h = bboxes(d,4);
-                region=frame(y:(y+h-1),x:(x+w),:);
+                region=frame(y:(y+h-1),x:(x+w-1),:);
                 histograms(d,:)= hist(region(:));                
             end
     end
