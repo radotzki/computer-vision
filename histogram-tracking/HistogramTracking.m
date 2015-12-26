@@ -2,7 +2,12 @@ function HistogramTracking(VideoFrames, histogramDistanceFunction)
 
 % predefined objects location (was marked by hand)
 objectsLocation = struct('frameNumber', {}, 'bbox', {});
+
+% for video 'LeftBag.mp4':
 objectsLocation(end + 1) = struct('frameNumber', 140, 'bbox', [151, 89, 44, 47]);
+
+% for video 'PETS2014-0101-2.avi':
+% objectsLocation(end + 1) = struct('frameNumber', 17, 'bbox', [863, 191, 34, 120]);
 
 % Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
@@ -20,8 +25,8 @@ numberOfBins = 10;
 % Detect moving objects, and track them across video frames.
 while frameNumber < size(VideoFrames, 4)
     frame = readFrame();
-    createNewTracks();
     integralHistogram = createIntegralHistogram();
+    createNewTracks();
     updateTracks();
     deleteLostTracks();
     displayTrackingResults();
@@ -51,6 +56,35 @@ end
         frame = VideoFrames(:,:,:,frameNumber);
     end
 
+%% createIntegralHistogram
+    function integralHistogram = createIntegralHistogram()
+        binRange = zeros(1, numberOfBins);
+
+        for i=2 : numberOfBins
+            binRange(1, i:end) = binRange(i) + 255 / numberOfBins;
+        end
+
+        binRange = uint8(binRange);
+
+        dim = size(frame);
+        IH = zeros(dim(1), dim(2), 3, numberOfBins);
+        for bin=1 : numberOfBins
+            min = binRange(bin);
+            if bin == numberOfBins
+                max = 255;
+            else
+                max = binRange(bin+1);
+            end
+            temp = zeros(dim(1), dim(2), 3);
+            temp(frame >= min & frame < max) = 1;
+            IH(:, :, 1, bin) = temp(:, :, 1);
+            IH(:, :, 2, bin) = temp(:, :, 2);
+            IH(:, :, 3, bin) = temp(:, :, 3);
+        end
+
+        integralHistogram = cumsum(cumsum(IH, 2), 1);
+    end
+
 %% Create New Tracks
     % use objectsLocation in order to check if there is a new object in
     % that frame. Then, create new track from that object.
@@ -61,16 +95,16 @@ end
                 y = objectsLocation(i).bbox(2);
                 w = objectsLocation(i).bbox(3);
                 h = objectsLocation(i).bbox(4);
-
-                regionR = frame(y:(y+h-1), x:(x+w-1), 1);
-                histogramR = hist(double(regionR(:)), numberOfBins);
                 
-                regionG = frame(y:(y+h-1), x:(x+w-1), 2);
-                histogramG = hist(double(regionG(:)), numberOfBins);
-                
-                regionB = frame(y:(y+h-1), x:(x+w-1), 3);
-                histogramB = hist(double(regionB(:)), numberOfBins);
+                currentHistogram = ...
+                    integralHistogram(y + h, x + w, :, :) - ...
+                    integralHistogram(y + h, x, :, :) - ...
+                    integralHistogram(y, x + w, :, :) + ...
+                    integralHistogram(y, x, :, :);
 
+                histogramR = reshape(currentHistogram(:, :, 1, :), [1, numberOfBins]);
+                histogramG = reshape(currentHistogram(:, :, 2, :), [1, numberOfBins]);
+                histogramB = reshape(currentHistogram(:, :, 3, :), [1, numberOfBins]);
                 histogramRGB = cat(2, histogramR, histogramG, histogramB);
                 
                 % Create a new track.
@@ -90,72 +124,6 @@ end
         end
     end
 
-%% createIntegralHistogram
-    function integralHistogram = createIntegralHistogram()
-        integralHistogram = ...
-            zeros(size(frame, 1), size(frame, 2), numberOfBins);
-        
-        if ~isempty(tracks)
-            nbins = numberOfBins;
-            binRange=zeros(1,nbins);
-            for i=2:nbins
-                binRange(1,i:end)=binRange(i)+255/nbins;
-            end
-            binRange=uint8(binRange);
-
-            dim=size(frame);
-            IH=zeros(dim(1),dim(2),3,nbins);
-            for bin=1:nbins
-                min=binRange(bin);
-                if bin==nbins
-                    max=255;
-                else
-                    max=binRange(bin+1);
-                end
-                temp=zeros(dim(1),dim(2),3);
-                temp(frame>=min & frame<max)=1;
-                IH(:,:,1,bin)=temp(:,:,1);
-                IH(:,:,2,bin)=temp(:,:,2);
-                IH(:,:,3,bin)=temp(:,:,3);
-            end
-            integralHistogram=cumsum(cumsum(IH,2),1);
-            
-%             grayFrame = rgb2gray(frame);
-%             grayFrame = double(grayFrame);
-% 
-%             bin = floor(grayFrame(1, 1) / 256 * numberOfBins) + 1;
-%             integralHistogram(1, 1, bin) = 1;
-% 
-%             % calc the first row
-%             for c=2 : size(grayFrame, 2)
-%                 bin = floor(grayFrame(1, c) / 256 * numberOfBins) + 1;
-%                 integralHistogram(1, c, :) = integralHistogram(1, c - 1, :);
-%                 integralHistogram(1, c, bin) = ...
-%                     integralHistogram(1, c, bin) + 1;
-%             end
-% 
-%             % calc the first column
-%             for r=2 : size(grayFrame, 1)
-%                 bin = floor(grayFrame(r, 1) / 256 * numberOfBins) + 1;
-%                 integralHistogram(r, 1, :) = integralHistogram(r - 1, 1, :);
-%                 integralHistogram(r, 1, bin) = ...
-%                     integralHistogram(r, 1, bin) + 1;
-%             end
-% 
-%             for y=2 : size(grayFrame, 2)
-%                 for x=2 : size(grayFrame, 1)
-%                     bin = floor(grayFrame(x, y) / 256 * numberOfBins) + 1;
-%                     integralHistogram(x, y, :) = ...
-%                         integralHistogram(x - 1, y, :) + ...
-%                         integralHistogram(x, y - 1, :) - ...
-%                         integralHistogram(x - 1, y - 1, :);
-%                     integralHistogram(x, y, bin) = ...
-%                         integralHistogram(x, y, bin) + 1;
-%                 end
-%             end
-        end
-    end
-
 %% Update Tracks
     function updateTracks()
         for t = 1:length(tracks)
@@ -163,7 +131,7 @@ end
             prevY = tracks(t).bbox(2);
             w = tracks(t).bbox(3);
             h = tracks(t).bbox(4);
-            N = 16;
+            N = 20;
             xStart = prevX - (N/2);
             yStart = prevY - (N/2);
             xFinish = xStart + N;
@@ -175,15 +143,15 @@ end
             
             minHistogramDiff = realmax;
             minCoordinate = [0,0];
-            
+
             % search for the histogram in the area
             for x=xStart : xFinish
                 for y=yStart : yFinish
                     currentHistogram = ...
-                        integralHistogram(x + w, y + h, :, :) - ...
-                        integralHistogram(x, y + h, :, :) - ...
-                        integralHistogram(x + w, y, :, :) + ...
-                        integralHistogram(x, y, :, :);
+                        integralHistogram(y + h, x + w, :, :) - ...
+                        integralHistogram(y + h, x, :, :) - ...
+                        integralHistogram(y, x + w, :, :) + ...
+                        integralHistogram(y, x, :, :);
                     
                     integralHistogramR = reshape(currentHistogram(:, :, 1, :), [1, numberOfBins]);
                     integralHistogramG = reshape(currentHistogram(:, :, 2, :), [1, numberOfBins]);
