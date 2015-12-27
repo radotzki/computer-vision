@@ -29,7 +29,7 @@ end
         % objects in each frame, and playing the video.
 
         % Create a video file reader.
-        obj.reader = vision.VideoFileReader('./Meet_WalkSplit.mp4');
+        obj.reader = vision.VideoFileReader('../videos/Meet_WalkSplit.mp4');
 
         % Create two video players, one to display the video,
         % and one to display the foreground mask.
@@ -94,7 +94,7 @@ end
 
             min = realmax;
             minIndex = 0;
-            
+
             % clear all alerts
             tracks(t).alert = '';
 
@@ -215,13 +215,13 @@ end
             curBbox = tracks(t).bboxes.getLast();
             curBbox = [curBbox(1), curBbox(2), curBbox(3), curBbox(4)];
             % Draw the objects on the frame.
-            
+
             if (tracks(t).alert)
                 annotation = tracks(t).alert;
             else
                 annotation = tracks(t).id;
             end
-            
+
             frame = insertObjectAnnotation(frame, 'rectangle', ...
                 curBbox, annotation);
 

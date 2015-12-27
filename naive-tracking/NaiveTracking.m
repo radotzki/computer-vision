@@ -30,7 +30,7 @@ end
         % objects in each frame, and playing the video.
 
         % Create a video file reader.
-        obj.reader = vision.VideoFileReader('./LeftBag.mp4');
+        obj.reader = vision.VideoFileReader('../videos/LeftBag.mp4');
 
         % Create two video players, one to display the video,
         % and one to display the foreground mask.

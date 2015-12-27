@@ -4,10 +4,9 @@ function HistogramTracking(VideoFrames, histogramDistanceFunction)
 objectsLocation = struct('frameNumber', {}, 'bbox', {});
 
 % for video 'LeftBag.mp4':
-objectsLocation(end + 1) = struct('frameNumber', 140, 'bbox', [151, 89, 44, 47]);
-
-% for video 'PETS2014-0101-2.avi':
-% objectsLocation(end + 1) = struct('frameNumber', 17, 'bbox', [863, 191, 34, 120]);
+objectsLocation(end + 1) = struct('frameNumber', 25, 'bbox', [145, 141, 56, 38]);
+objectsLocation(end + 1) = struct('frameNumber', 190, 'bbox', [97, 101, 41, 26]);
+objectsLocation(end + 1) = struct('frameNumber', 190, 'bbox', [87, 141, 42, 19]);
 
 % Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
@@ -20,7 +19,7 @@ tracks = initializeTracks();
 nextId = 1;
 
 frameNumber = 1;
-numberOfBins = 10;
+numberOfBins = 14;
 
 % Detect moving objects, and track them across video frames.
 while frameNumber < size(VideoFrames, 4)

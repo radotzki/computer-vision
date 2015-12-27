@@ -1,7 +1,7 @@
 # histogram-tracking
 
 ## How to run:
-1. VideoFrames = VideoReader('./LeftBag.mp4').read();
+1. VideoFrames = VideoReader('../videos/LeftBag.mp4').read();
 2. HistogramTracking(VideoFrames, 'ssd');
 
 ### optional histogram distance functions:
